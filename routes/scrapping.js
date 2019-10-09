@@ -6,6 +6,7 @@ module.exports = (app)=>{
         let dados = req.body.dados;
         let listaCodigos = dados.codigos;
         let listaResultado = [];
+        let indiceListaResultado = 0;
         (async () => {
             const browser = await puppeteer.launch(
                 //{headless: false}
@@ -20,6 +21,34 @@ module.exports = (app)=>{
                 page.waitForNavigation(),
                 await page.click('#login_submit')
             ]);
+
+            let workbook = new excel.Workbook();
+            let worksheet = workbook.addWorksheet('Resultado');
+            let linhaCodigoExcel = 0;
+            let estiloAlta = workbook.createStyle({
+                fill: {
+                    type: 'pattern',
+                    patternType: 'solid',
+                    fgColor: '#92d050',
+                    bgColor: '#92d050'
+                }
+            });
+            let estiloBaixa = workbook.createStyle({
+                fill: {
+                    type: 'pattern',
+                    patternType: 'solid',
+                    fgColor: '#bb4545',
+                    bgColor: '#bb4545',
+                }
+            });
+            let estiloNeutra = workbook.createStyle({
+                fill: {
+                    type: 'pattern',
+                    patternType: 'solid',
+                    fgColor: '#66ffff',
+                    bgColor: '#66ffff',
+                }
+            });
 
             let codigo = '';
             for(let i = 0; i < listaCodigos.length; i++) {
@@ -38,7 +67,7 @@ module.exports = (app)=>{
                 ]);
 
                 let filtroData = 9;
-                for(let j = 1; j < filtroData; j++) {
+                for(let j = 1; j <= filtroData; j++) {
                     await Promise.all([
                         page.waitForNavigation(),
                         await page.click('#underlinemenu > ul > li:nth-child('+j+') > a')
@@ -54,16 +83,39 @@ module.exports = (app)=>{
                     const indicadorNeutra = await page.evaluate(element => element.textContent, neutra);
                     
                     listaResultado.push({
-                        codigo: codigo,
                         alta: indicadorAlta,
                         baixa: indicadorBaixa,
                         neutra: indicadorNeutra
                     });
                 }
 
+                worksheet.cell(1 + linhaCodigoExcel,1).string(codigo);
+                worksheet.cell(1 + linhaCodigoExcel,2).string('1M');
+                worksheet.cell(1 + linhaCodigoExcel,3).string('5M');
+                worksheet.cell(1 + linhaCodigoExcel,4).string('10M');
+                worksheet.cell(1 + linhaCodigoExcel,5).string('15M');
+                worksheet.cell(1 + linhaCodigoExcel,6).string('30M');
+                worksheet.cell(1 + linhaCodigoExcel,7).string('60M');
+                worksheet.cell(1 + linhaCodigoExcel,8).string('DIÁRIO');
+                worksheet.cell(1 + linhaCodigoExcel,9).string('SEM');
+                worksheet.cell(1 + linhaCodigoExcel,10).string('MEN');
+                worksheet.cell(2 + linhaCodigoExcel,1).string('ALTA').style(estiloAlta);
+                worksheet.cell(3 + linhaCodigoExcel,1).string('BAIXA').style(estiloBaixa);
+                worksheet.cell(4 + linhaCodigoExcel,1).string('NEUTRO').style(estiloNeutra);
+
+
+                for(let k = 0; k <= 8; k++) {
+                    worksheet.cell(2 + linhaCodigoExcel, 2 + k).string(listaResultado[k + indiceListaResultado].alta).style(estiloAlta);
+                    worksheet.cell(3 + linhaCodigoExcel, 2 + k).string(listaResultado[k + indiceListaResultado].baixa).style(estiloBaixa);
+                    worksheet.cell(4 + linhaCodigoExcel, 2 + k).string(listaResultado[k + indiceListaResultado].neutra).style(estiloNeutra);
+                }
+                linhaCodigoExcel += 6;
+                indiceListaResultado += 9;
+                
                 if(i == listaCodigos.length - 1) {
-                    console.log('gravar no XLS');
-                    console.log(listaResultado);
+                    let today = new Date();
+                    let date = today.getDate() + '-' + (today.getMonth() + 1) + '-' + today.getFullYear();
+                    workbook.write('resultado_scrapping/' + date + '.xlsx');
 
                     res.json({
                         success: true                    
